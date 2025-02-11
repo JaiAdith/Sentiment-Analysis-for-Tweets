@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>X Sentiment</title>
+    
+    <style>
+        /* Custom CSS */
+        body {
+            background-image: url('jaii.jpg'); /* Specify the path to your background image */
+            background-size: cover; /* Cover the entire viewport */
+            background-position: center; /* Center the background image */
+        }
+
+        .container {
+            text-align: center; /* Align contents in the center */
+            background-color: rgba(8, 8, 8, 0.5); /* Semi-transparent white background */
+            padding: 20px; /* Add padding to the container */
+            border-radius: 10px; /* Add border-radius for a rounded appearance */
+            margin: 20px auto; /* Center the container horizontally */
+            max-width: 900px;
+            margin-bottom: 200px; /* Set maximum width for the container */
+            color: #ffffff;
+        }
+
+        h1 {
+            margin-bottom: 20px; /* Add space below the heading */
+            text-align: center;
+            color: white;
+        }
+
+        .nav button {
+            background: none;
+            border: none;
+            padding: 0;
+            font-family: inherit;
+            font-size: inherit;
+            cursor: pointer;
+            color: #36a094; /* Button text color */
+            text-decoration: none; /* Remove underline */
+        }
+
+        .nav button:hover {
+            color: #36a094; /* Green text color on hover */
+        }
+
+        .button-container {
+            text-align: center; /* Center the buttons horizontally */
+            margin-top: 10px;
+            margin-bottom: 100px; /* Add some space above the buttons */
+        }
+
+        .button {
+            background-color: #36a094; /* Green button background color */
+            color: #ffffff; /* Button text color */
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none; /* Remove underline */
+            transition: background-color 0.3s;
+            display: inline-block; /* Make buttons inline */
+            margin: 10px; /* Add margin around the buttons */
+        }
+
+        .button:hover {
+            background-color: #36a094; /* Darker green background color on hover */
+        }
+    </style>
+</head>
+
+<body><br>
+    <h1>X Sentiment Analyzer</h1>
+    <div class="container">
+        <ul class="nav">
+            <button>
+                <a href="11.html" class="button">Home</a>
+            </button>
+        </ul>
+        <div id="home" class="tab">
+            <form id="sentiment-form">
+            </form>
+        </div>
+        <div id="sentiment" class="tab">
+            <h2>Analyze a Tweet Sentiment</h2>
+            <div class="options">
+                <div id="create-tweet-section">
+                    <h3>Create your own tweet and Analyze</h3>
+                    <label for="twitter-search">Enter your tweet:</label><br>
+                    <textarea id="tweetTextArea" name="type" rows="6" cols="30"></textarea><br>
+                </div>
+                <div>
+                    <button id="analyzeButton" class="button">
+                        Analyze
+                    </button>
+                </div>
+            </div>
+            <h3 id="result"></h3>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('analyzeButton').addEventListener('click', () => {
+            const tweetText = document.getElementById('tweetTextArea').value;
+            fetch('http://127.0.0.1:5000/analyze_sentiment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        text: tweetText
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data);
+                    const resultElement = document.getElementById('result');
+                    resultElement.innerText = `Sentiment: ${data[0].label}, Score: ${data[0].score}`;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        });
+    </script>
+</body>
+
+</html>
