@@ -7,187 +7,170 @@
     <title>Tweet Viewer</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
     <style>
-        /* Custom CSS */
         body {
-            background-image: url('jaii.jpg'); /* Specify the path to your background image */
-            background-size: cover; /* Cover the entire viewport */
-            background-position: center; /* Center the background image */
-            color: #ffffff; /* Set text color to white */
+            background-image: url('image.jpg');
+            background-size: cover;
+            background-position: center;
+            color: #ffffff;
         }
 
         .container {
-            text-align: center; /* Align contents in the center */
-            background-color: rgba(8, 6, 6, 0.5); /* Semi-transparent white background */
-            padding: 20px; /* Add padding to the container */
-            border-radius: 10px; /* Add border-radius for a rounded appearance */
-            margin: 20px auto; /* Center the container horizontally */
+            text-align: center;
+            background-color: rgba(8, 6, 6, 0.5);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px auto;
             max-width: 900px;
-            margin-bottom: 200px; /* Set maximum width for the container */
+            margin-bottom: 200px;
         }
 
         h1 {
-            margin-bottom: 20px; /* Add space below the heading */
-        }
-
-        .nav button {
-            background: none;
-            border: none;
-            padding: 0;
-            font-family: inherit;
-            font-size: inherit;
-            cursor: pointer;
-            color: #36a094; /* Button text color */
-            text-decoration: underline; /* Underline text */
-        }
-
-        .nav button:hover {
-            color: #36a094; /* Text color on hover */
+            margin-bottom: 20px;
         }
 
         .button-container {
-            text-align: center; /* Center the buttons horizontally */
+            text-align: center;
             margin-top: 10px;
-            margin-bottom: 100px; /* Add some space above the buttons */
+            margin-bottom: 100px;
         }
 
         .button {
-            background-color: #36a094; /* Button background color */
-            color: #ffffff; /* Button text color */
+            background-color: #36a094;
+            color: #ffffff;
             padding: 10px 20px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            text-decoration: none; /* Remove underline */
+            text-decoration: none;
             transition: background-color 0.3s;
-            display: inline-block; /* Make buttons inline */
-            margin: 10px; /* Add margin around the buttons */
+            display: inline-block;
+            margin: 10px;
         }
 
         .button:hover {
-            background-color: #36a094; /* Darker background color on hover */
+            background-color: #2b8177;
+        }
+
+        .summary {
+            margin: 20px 0;
+            font-size: 1.2rem;
+        }
+
+        .error {
+            color: #ff8a80;
+            margin-top: 15px;
         }
     </style>
 </head>
 
 <body ng-controller="TweetController">
     <div class="container">
-        <h1>X User - Sentimental Analysis</h1>
+        <h1>X User - Sentiment Analysis</h1>
         <form ng-submit="fetchTweets()">
-            <label for="username">Enter a X Username:</label>
+            <label for="username">Enter an X Username:</label>
             <input type="text" id="username" ng-model="username" required>
-            <button type="submit" class="btn">Analyze</button>
+            <button type="submit" class="btn" ng-disabled="loading">
+                {{ loading ? 'Analyzing...' : 'Analyze' }}
+            </button>
         </form>
+
+        <p class="error" ng-show="errorMessage">{{ errorMessage }}</p>
+
         <div class="row" ng-show="afterfetch">
+            <div class="summary">
+                Overall sentiment: <strong>{{ overallSentiment }}</strong><br>
+                Positive: {{ counts.positive }} &nbsp;|&nbsp;
+                Neutral: {{ counts.neutral }} &nbsp;|&nbsp;
+                Negative: {{ counts.negative }}
+            </div>
             <div class="col s12">
                 <table class="striped">
                     <thead>
                         <tr>
                             <th>Tweet</th>
                             <th>Sentiment</th>
-                            <th>Score</th>
+                            <th>Confidence</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr ng-repeat="tweet in tweets">
                             <td>{{ tweet.text }}</td>
-                            <td>{{ tweet.dominantLabel }} </td>
-                            <td>{{ (tweet.highestScore*100) | number:2 }}%</td>
+                            <td>{{ tweet.dominantLabel }}</td>
+                            <td>{{ (tweet.highestScore * 100) | number:2 }}%</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
         </div>
+
         <div class="button-container">
-            <a href="user_analysis.html" class="button">Back</a>
+            <a href="22.html" class="button">Back</a>
         </div>
     </div>
 
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
     <script>
+        // Local services: Node proxy for tweets, Flask for model inference
+        const TWEETS_API = 'http://localhost:3000/tweets';
+        const SENTIMENT_API = 'http://127.0.0.1:5000/analyze_batch';
+
         angular.module('myApp', [])
-            .controller('TweetController', ['$scope', '$http', '$q', function ($scope, $http, $q) {
+            .controller('TweetController', ['$scope', '$http', function ($scope, $http) {
+                $scope.loading = false;
+                $scope.afterfetch = false;
+                $scope.errorMessage = '';
+
                 $scope.fetchTweets = function () {
-                    const endpointUrl = 'https://am-akash1309-tweet-endpoint.glitch.me/tweets';
-                    const params = {
-                        username: $scope.username,
-                        limit: '10',
-                        include_replies: 'false',
-                        include_pinned: 'false'
-                    };
+                    $scope.loading = true;
+                    $scope.afterfetch = false;
+                    $scope.errorMessage = '';
 
-                    $http.get(endpointUrl, { params })
+                    $http.get(TWEETS_API, { params: { username: $scope.username, limit: 10 } })
                         .then(function (response) {
-                            const tweets = response.data.results;
-                            const sentimentPromises = tweets.map(tweet => {
-                                return analyzeSentiment(tweet.text)
-                                    .then(sentimentResult => {
-                                        tweet.dominantLabel = sentimentResult.dominantLabel;
-                                        tweet.highestScore = sentimentResult.highestScore;
-                                    });
-                            });
+                            const tweets = (response.data && response.data.results) || [];
+                            if (tweets.length === 0) {
+                                throw new Error('No tweets found for this user.');
+                            }
 
-                            // Wait for all sentiment analysis promises to resolve
-                            $q.all(sentimentPromises)
-                                .then(() => {
+                            // One request for all tweets instead of one request per tweet
+                            return $http.post(SENTIMENT_API, { texts: tweets.map(t => t.text) })
+                                .then(function (res) {
+                                    // Each result is a list of labels sorted by probability;
+                                    // the first entry is the predicted label
+                                    res.data.forEach((ranked, i) => {
+                                        tweets[i].dominantLabel = ranked[0].label;
+                                        tweets[i].highestScore = ranked[0].score;
+                                    });
                                     $scope.tweets = tweets;
                                     $scope.calculateOverallSentiment(tweets);
-                                    $scope.afterfetch = true
+                                    $scope.afterfetch = true;
                                 });
                         })
                         .catch(function (error) {
-                            console.error('Error fetching tweets:', error);
-                        });
-
-                };
-
-                function analyzeSentiment(text) {
-                    return fetch('http://127.0.0.1:5000/analyze_sentiment', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ text })
-                    })
-                        .then(response => response.json())
-                        .then(sentiments => {
-                            let highestScore = -1;
-                            let dominantLabel = null;
-
-                            // Find the label with the highest score
-                            sentiments.forEach(sentiment => {
-                                if (sentiment.score > highestScore) {
-                                    highestScore = sentiment.score;
-                                    dominantLabel = sentiment.label;
-                                }
-                            });
-
-                            return { dominantLabel, highestScore };
+                            console.error(error);
+                            $scope.errorMessage = (error && error.message) ||
+                                'Something went wrong. Make sure both backend servers are running.';
                         })
-                        .catch(error => {
-                            console.error('Error analyzing sentiment:', error);
-                            return { dominantLabel: null, highestScore: -1 };
+                        .finally(function () {
+                            $scope.loading = false;
                         });
-                }
-
-                $scope.calculateOverallSentiment = function (tweets) {
-                    const totalScore = tweets.reduce((acc, tweet) => acc + tweet.highestScore, 0);
-                    const averageScore = totalScore / tweets.length;
-
-                    let overallSentiment = '';
-                    if (averageScore >= 60) {
-                        overallSentiment = 'positive';
-                    } else if (averageScore <= 40) {
-                        overallSentiment = 'negative';
-                    } else {
-                        overallSentiment = 'neutral';
-                    }
-
-                    $scope.overallSentiment = overallSentiment;
                 };
 
+                // Overall sentiment = the most common predicted label across tweets.
+                // (The previous version averaged confidence scores, which ignored
+                //  which label each tweet received.)
+                $scope.calculateOverallSentiment = function (tweets) {
+                    const counts = { positive: 0, neutral: 0, negative: 0 };
+                    tweets.forEach(t => {
+                        if (counts.hasOwnProperty(t.dominantLabel)) {
+                            counts[t.dominantLabel] += 1;
+                        }
+                    });
+                    $scope.counts = counts;
+                    $scope.overallSentiment = Object.keys(counts)
+                        .reduce((a, b) => counts[a] >= counts[b] ? a : b);
+                };
             }]);
-
-
     </script>
 </body>
 
